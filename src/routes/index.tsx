@@ -173,7 +173,10 @@ function Launcher() {
       onPointerUp={(e) => {
         if (!drag.current || drag.current.id !== e.pointerId) return;
         const moved = drag.current?.moved;
-        if (!moved && nearest && touch && Math.hypot(nearest.x - touch.x, nearest.y - touch.y) < 50) setOpened(nearest.name ?? null);
+        if (!moved) {
+          const hit = nearestAt(panRef.current, pos(e));
+          if (hit) setOpened(hit.name);
+        }
         drag.current = null;
         setTouch(null);
         if (!moved || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;

@@ -48,7 +48,32 @@ function Launcher() {
   const vel = useRef({ x: 0, y: 0, point: { x: 0, y: 0 }, t: 0 });
   const raf = useRef(0);
   const panRef = useRef(pan);
+  const target = useRef<Point>(pan);
   const updatePan = (next: Point) => { panRef.current = next; setPan(next); };
+
+  // One continuous rAF loop: the rendered pan eases toward the target every
+  // frame, so drags, flicks and wheel scrolls all glide without jumps.
+  const ensureLoop = () => {
+    if (raf.current) return;
+    let previous = performance.now();
+    const step = (now: number) => {
+      const dt = Math.min(48, now - previous);
+      previous = now;
+      const cur = panRef.current;
+      const tgt = target.current;
+      // exponential catch-up: smooth, frame-rate independent, never overshoots
+      const k = 1 - Math.exp(-dt / 70);
+      const next = { x: cur.x + (tgt.x - cur.x) * k, y: cur.y + (tgt.y - cur.y) * k };
+      updatePan(next);
+      if (Math.hypot(tgt.x - next.x, tgt.y - next.y) > 0.05 || drag.current) {
+        raf.current = requestAnimationFrame(step);
+      } else {
+        updatePan(tgt);
+        raf.current = 0;
+      }
+    };
+    raf.current = requestAnimationFrame(step);
+  };
   useEffect(() => () => cancelAnimationFrame(raf.current), []);
 
   useEffect(() => {

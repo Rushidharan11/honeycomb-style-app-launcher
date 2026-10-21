@@ -109,7 +109,7 @@ function Launcher() {
         drag.current.moved = true;
       }}
       onPointerUp={() => {
-        if (nearest && touch && Math.hypot(nearest.x - touch.x, nearest.y - touch.y) < 50) setOpened(nearest.name);
+        if (nearest && touch && Math.hypot(nearest.x - touch.x, nearest.y - touch.y) < 50) setOpened(nearest.name ?? null);
         drag.current = null;
         setTouch(null);
       }}

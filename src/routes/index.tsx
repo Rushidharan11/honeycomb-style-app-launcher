@@ -126,6 +126,24 @@ function Launcher() {
     ? icons.reduce((a, b) => (Math.hypot(b.x - touch.x, b.y - touch.y) < Math.hypot(a.x - touch.x, a.y - touch.y) ? b : a))
     : null;
 
+  // Imperative hit-test for tap-to-open: pointerup can fire before React
+  // re-renders the pointerdown state, so compute from refs instead of state.
+  const nearestAt = (panV: Point, p: Point) => {
+    let best: { name: string; d: number } | null = null;
+    for (let i = 0; i < APPS.length; i++) {
+      const r = Math.floor(i / COLS), c = i % COLS;
+      const bx = wrapCoordinate(offX + c * GAP_X + (r % 2 ? GAP_X / 2 : 0) + panV.x, gridW);
+      const by = wrapCoordinate(70 + r * GAP_Y + panV.y, gridH);
+      for (let ty = -1; ty <= Math.ceil(size.h / gridH); ty++) {
+        for (let tx = -1; tx <= Math.ceil(size.w / gridW); tx++) {
+          const d = Math.hypot(bx + tx * gridW - p.x, by + ty * gridH - p.y);
+          if (d < 50 && (!best || d < best.d)) best = { name: APPS[i][0], d };
+        }
+      }
+    }
+    return best;
+  };
+
   return (
     <div
       ref={ref}

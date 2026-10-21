@@ -46,6 +46,8 @@ function Launcher() {
   const drag = useRef<{ y: number; s: number; moved: boolean } | null>(null);
   const vel = useRef({ v: 0, y: 0, t: 0 });
   const raf = useRef(0);
+  const scrollRef = useRef(0);
+  scrollRef.current = scroll;
   useEffect(() => () => cancelAnimationFrame(raf.current), []);
 
   useEffect(() => {
@@ -128,17 +130,14 @@ function Launcher() {
         // momentum + spring back
         let v = moved ? vel.current.v * 16 : 0;
         const step = () => {
-          let done = false;
-          setScroll((s) => {
-            let n = s + v;
-            v *= 0.94;
-            if (n < 0) { n = n * 0.8; v *= 0.5; }
-            else if (n > maxScroll) { n = maxScroll + (n - maxScroll) * 0.8; v *= 0.5; }
-            const out = n < -0.5 || n > maxScroll + 0.5;
-            if (Math.abs(v) < 0.2 && !out) { done = true; return Math.min(maxScroll, Math.max(0, n)); }
-            return n;
-          });
-          if (!done) raf.current = requestAnimationFrame(step);
+          let n = scrollRef.current + v;
+          v *= 0.94;
+          if (n < 0) { n = n * 0.8; v *= 0.5; }
+          else if (n > maxScroll) { n = maxScroll + (n - maxScroll) * 0.8; v *= 0.5; }
+          const out = n < -0.5 || n > maxScroll + 0.5;
+          if (Math.abs(v) < 0.2 && !out) { setScroll(Math.min(maxScroll, Math.max(0, n))); return; }
+          setScroll(n);
+          raf.current = requestAnimationFrame(step);
         };
         raf.current = requestAnimationFrame(step);
       }}

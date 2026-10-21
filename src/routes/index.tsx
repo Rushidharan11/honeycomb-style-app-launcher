@@ -48,7 +48,32 @@ function Launcher() {
   const vel = useRef({ x: 0, y: 0, point: { x: 0, y: 0 }, t: 0 });
   const raf = useRef(0);
   const panRef = useRef(pan);
+  const target = useRef<Point>(pan);
   const updatePan = (next: Point) => { panRef.current = next; setPan(next); };
+
+  // One continuous rAF loop: the rendered pan eases toward the target every
+  // frame, so drags, flicks and wheel scrolls all glide without jumps.
+  const ensureLoop = () => {
+    if (raf.current) return;
+    let previous = performance.now();
+    const step = (now: number) => {
+      const dt = Math.min(48, now - previous);
+      previous = now;
+      const cur = panRef.current;
+      const tgt = target.current;
+      // exponential catch-up: smooth, frame-rate independent, never overshoots
+      const k = 1 - Math.exp(-dt / 70);
+      const next = { x: cur.x + (tgt.x - cur.x) * k, y: cur.y + (tgt.y - cur.y) * k };
+      updatePan(next);
+      if (Math.hypot(tgt.x - next.x, tgt.y - next.y) > 0.05 || drag.current) {
+        raf.current = requestAnimationFrame(step);
+      } else {
+        updatePan(tgt);
+        raf.current = 0;
+      }
+    };
+    raf.current = requestAnimationFrame(step);
+  };
   useEffect(() => () => cancelAnimationFrame(raf.current), []);
 
   useEffect(() => {
@@ -101,6 +126,24 @@ function Launcher() {
     ? icons.reduce((a, b) => (Math.hypot(b.x - touch.x, b.y - touch.y) < Math.hypot(a.x - touch.x, a.y - touch.y) ? b : a))
     : null;
 
+  // Imperative hit-test for tap-to-open: pointerup can fire before React
+  // re-renders the pointerdown state, so compute from refs instead of state.
+  const nearestAt = (panV: Point, p: Point) => {
+    let best: { name: string; d: number } | null = null;
+    for (let i = 0; i < APPS.length; i++) {
+      const r = Math.floor(i / COLS), c = i % COLS;
+      const bx = wrapCoordinate(offX + c * GAP_X + (r % 2 ? GAP_X / 2 : 0) + panV.x, gridW);
+      const by = wrapCoordinate(70 + r * GAP_Y + panV.y, gridH);
+      for (let ty = -1; ty <= Math.ceil(size.h / gridH); ty++) {
+        for (let tx = -1; tx <= Math.ceil(size.w / gridW); tx++) {
+          const d = Math.hypot(bx + tx * gridW - p.x, by + ty * gridH - p.y);
+          if (d < 50 && (!best || d < best.d)) best = { name: APPS[i][0] as string, d };
+        }
+      }
+    }
+    return best;
+  };
+
   return (
     <div
       ref={ref}
@@ -108,7 +151,6 @@ function Launcher() {
       onPointerDown={(e) => {
         if (drag.current || (e.pointerType === "mouse" && e.button !== 0)) return;
         const p = pos(e);
-        cancelAnimationFrame(raf.current);
         setTouch(p);
         drag.current = { start: p, origin: panRef.current, moved: false, id: e.pointerId };
         vel.current = { x: 0, y: 0, point: p, t: performance.now() };
@@ -121,7 +163,8 @@ function Launcher() {
         setTouch(p);
         if (Math.hypot(p.x - drag.current.start.x, p.y - drag.current.start.y) > 8) drag.current.moved = true;
         if (drag.current.moved) {
-          updatePan(panWithFinger(drag.current.origin, drag.current.start, p));
+          target.current = panWithFinger(drag.current.origin, drag.current.start, p);
+          ensureLoop();
         }
         const now = performance.now();
         const dt = Math.max(1, now - vel.current.t);
@@ -130,27 +173,46 @@ function Launcher() {
       onPointerUp={(e) => {
         if (!drag.current || drag.current.id !== e.pointerId) return;
         const moved = drag.current?.moved;
-        if (!moved && nearest && touch && Math.hypot(nearest.x - touch.x, nearest.y - touch.y) < 50) setOpened(nearest.name ?? null);
+        if (!moved) {
+          const hit = nearestAt(panRef.current, pos(e));
+          if (hit) setOpened(hit.name);
+        }
         drag.current = null;
         setTouch(null);
         if (!moved || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
         const fresh = performance.now() - vel.current.t < 100;
         let vx = fresh ? vel.current.x : 0, vy = fresh ? vel.current.y : 0;
+        if (Math.hypot(vx, vy) < 0.05) return;
+        // momentum: keep pushing the target forward with decay while easing
+        // the rendered pan toward it, so the glide continues the drag smoothly.
         let previous = performance.now();
-        const step = (now: number) => {
-          const dt = Math.min(32, now - previous);
+        const glide = (now: number) => {
+          if (drag.current) { raf.current = 0; return; } // a new touch takes over
+          const dt = Math.min(48, now - previous);
           previous = now;
-          updatePan({ x: panRef.current.x + vx * dt, y: panRef.current.y + vy * dt });
+          target.current = { x: target.current.x + vx * dt, y: target.current.y + vy * dt };
+          const cur = panRef.current;
+          const tgt = target.current;
+          const k = 1 - Math.exp(-dt / 70);
+          updatePan({ x: cur.x + (tgt.x - cur.x) * k, y: cur.y + (tgt.y - cur.y) * k });
           const decay = Math.pow(0.94, dt / 16);
           vx *= decay; vy *= decay;
-          if (Math.hypot(vx, vy) < 0.012) return;
-          raf.current = requestAnimationFrame(step);
+          if (Math.hypot(vx, vy) < 0.012 && Math.hypot(tgt.x - cur.x, tgt.y - cur.y) < 0.05) {
+            updatePan(tgt);
+            raf.current = 0;
+            return;
+          }
+          raf.current = requestAnimationFrame(glide);
         };
-        raf.current = requestAnimationFrame(step);
+        cancelAnimationFrame(raf.current);
+        raf.current = requestAnimationFrame(glide);
       }}
-      onPointerCancel={() => { drag.current = null; setTouch(null); cancelAnimationFrame(raf.current); }}
+      onPointerCancel={() => { drag.current = null; setTouch(null); }}
       onPointerLeave={(e) => { if (e.pointerType === "mouse") setTouch(null); }}
-      onWheel={(e) => { cancelAnimationFrame(raf.current); updatePan({ x: panRef.current.x - e.deltaX, y: panRef.current.y - e.deltaY }); }}
+      onWheel={(e) => {
+        target.current = { x: target.current.x - e.deltaX, y: target.current.y - e.deltaY };
+        ensureLoop();
+      }}
     >
       <div className="pointer-events-none absolute left-0 right-0 top-4 text-center text-xs tracking-[0.3em] text-muted-foreground">
         HIVE
@@ -164,6 +226,7 @@ function Launcher() {
             className="hive-icon absolute flex items-center justify-center rounded-full"
             style={{
               width: BASE, height: BASE,
+              willChange: "transform",
               transform: `translate(${a.x - BASE / 2}px, ${a.y - BASE / 2}px) scale(${a.scale})`,
               zIndex: Math.round(a.scale * 10),
               ["--h" as string]: HUES[a.i % HUES.length],

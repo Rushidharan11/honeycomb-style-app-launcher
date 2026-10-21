@@ -136,7 +136,7 @@ function Launcher() {
           else if (n > maxScroll) { n = maxScroll + (n - maxScroll) * 0.8; v *= 0.5; }
           const out = n < -0.5 || n > maxScroll + 0.5;
           if (Math.abs(v) < 0.2 && !out) { setScroll(Math.min(maxScroll, Math.max(0, n))); return; }
-          setScroll(n);
+          scrollRef.current = n; setScroll(n);
           raf.current = requestAnimationFrame(step);
         };
         raf.current = requestAnimationFrame(step);

@@ -137,7 +137,7 @@ function Launcher() {
       for (let ty = -1; ty <= Math.ceil(size.h / gridH); ty++) {
         for (let tx = -1; tx <= Math.ceil(size.w / gridW); tx++) {
           const d = Math.hypot(bx + tx * gridW - p.x, by + ty * gridH - p.y);
-          if (d < 50 && (!best || d < best.d)) best = { name: APPS[i][0], d };
+          if (d < 50 && (!best || d < best.d)) best = { name: APPS[i][0] as string, d };
         }
       }
     }

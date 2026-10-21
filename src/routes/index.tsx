@@ -44,6 +44,9 @@ function Launcher() {
   const [scroll, setScroll] = useState(0);
   const [opened, setOpened] = useState<string | null>(null);
   const drag = useRef<{ y: number; s: number; moved: boolean } | null>(null);
+  const vel = useRef({ v: 0, y: 0, t: 0 });
+  const raf = useRef(0);
+  useEffect(() => () => cancelAnimationFrame(raf.current), []);
 
   useEffect(() => {
     const r = () => setSize({ w: window.innerWidth, h: window.innerHeight });
@@ -93,8 +96,10 @@ function Launcher() {
       className="hive-surface fixed inset-0 touch-none select-none overflow-hidden"
       onPointerDown={(e) => {
         const p = pos(e);
+        cancelAnimationFrame(raf.current);
         setTouch(p);
         drag.current = { y: p.y, s: scroll, moved: false };
+        vel.current = { v: 0, y: p.y, t: performance.now() };
         (e.target as Element).setPointerCapture?.(e.pointerId);
       }}
       onPointerMove={(e) => {
@@ -102,16 +107,40 @@ function Launcher() {
         if (e.pointerType === "mouse" && !drag.current) { setTouch(p); return; }
         if (!drag.current) return;
         setTouch(p);
-        // scroll when thumb nears top/bottom edges
-        const edge = 90;
-        if (p.y < edge) setScroll((s) => Math.max(0, s - (edge - p.y) * 0.15));
-        else if (p.y > size.h - edge) setScroll((s) => Math.min(maxScroll, s + (p.y - (size.h - edge)) * 0.15));
-        drag.current.moved = true;
+        const dy = p.y - drag.current.y;
+        if (Math.abs(dy) > 8) drag.current.moved = true;
+        if (drag.current.moved) {
+          // content moves with the finger: scroll opposite to finger delta, with rubber-band edges
+          let s = drag.current.s - dy;
+          if (s < 0) s = s * 0.35;
+          else if (s > maxScroll) s = maxScroll + (s - maxScroll) * 0.35;
+          setScroll(s);
+        }
+        const now = performance.now();
+        const dt = Math.max(1, now - vel.current.t);
+        vel.current = { v: 0.8 * ((vel.current.y - p.y) / dt) + 0.2 * vel.current.v, y: p.y, t: now };
       }}
       onPointerUp={() => {
-        if (nearest && touch && Math.hypot(nearest.x - touch.x, nearest.y - touch.y) < 50) setOpened(nearest.name ?? null);
+        const moved = drag.current?.moved;
+        if (!moved && nearest && touch && Math.hypot(nearest.x - touch.x, nearest.y - touch.y) < 50) setOpened(nearest.name ?? null);
         drag.current = null;
         setTouch(null);
+        // momentum + spring back
+        let v = moved ? vel.current.v * 16 : 0;
+        const step = () => {
+          let done = false;
+          setScroll((s) => {
+            let n = s + v;
+            v *= 0.94;
+            if (n < 0) { n = n * 0.8; v *= 0.5; }
+            else if (n > maxScroll) { n = maxScroll + (n - maxScroll) * 0.8; v *= 0.5; }
+            const out = n < -0.5 || n > maxScroll + 0.5;
+            if (Math.abs(v) < 0.2 && !out) { done = true; return Math.min(maxScroll, Math.max(0, n)); }
+            return n;
+          });
+          if (!done) raf.current = requestAnimationFrame(step);
+        };
+        raf.current = requestAnimationFrame(step);
       }}
       onPointerLeave={(e) => { if (e.pointerType === "mouse") setTouch(null); }}
       onWheel={(e) => setScroll((s) => Math.min(maxScroll, Math.max(0, s + e.deltaY)))}

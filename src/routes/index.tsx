@@ -161,21 +161,31 @@ function Launcher() {
         if (!moved || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
         const fresh = performance.now() - vel.current.t < 100;
         let vx = fresh ? vel.current.x : 0, vy = fresh ? vel.current.y : 0;
+        if (Math.hypot(vx, vy) < 0.05) return;
+        // momentum: keep pushing the target forward with decay; the easing
+        // loop follows it, so the glide stays continuous with the drag.
         let previous = performance.now();
-        const step = (now: number) => {
-          const dt = Math.min(32, now - previous);
+        const glide = (now: number) => {
+          if (drag.current) return; // a new touch takes over instantly
+          const dt = Math.min(48, now - previous);
           previous = now;
-          updatePan({ x: panRef.current.x + vx * dt, y: panRef.current.y + vy * dt });
+          target.current = { x: target.current.x + vx * dt, y: target.current.y + vy * dt };
+          ensureLoop();
           const decay = Math.pow(0.94, dt / 16);
           vx *= decay; vy *= decay;
           if (Math.hypot(vx, vy) < 0.012) return;
-          raf.current = requestAnimationFrame(step);
+          raf.current = requestAnimationFrame(glide);
         };
-        raf.current = requestAnimationFrame(step);
+        cancelAnimationFrame(raf.current);
+        raf.current = 0;
+        raf.current = requestAnimationFrame(glide);
       }}
-      onPointerCancel={() => { drag.current = null; setTouch(null); cancelAnimationFrame(raf.current); }}
+      onPointerCancel={() => { drag.current = null; setTouch(null); }}
       onPointerLeave={(e) => { if (e.pointerType === "mouse") setTouch(null); }}
-      onWheel={(e) => { cancelAnimationFrame(raf.current); updatePan({ x: panRef.current.x - e.deltaX, y: panRef.current.y - e.deltaY }); }}
+      onWheel={(e) => {
+        target.current = { x: target.current.x - e.deltaX, y: target.current.y - e.deltaY };
+        ensureLoop();
+      }}
     >
       <div className="pointer-events-none absolute left-0 right-0 top-4 text-center text-xs tracking-[0.3em] text-muted-foreground">
         HIVE

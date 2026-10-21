@@ -205,6 +205,7 @@ function Launcher() {
             className="hive-icon absolute flex items-center justify-center rounded-full"
             style={{
               width: BASE, height: BASE,
+              willChange: "transform",
               transform: `translate(${a.x - BASE / 2}px, ${a.y - BASE / 2}px) scale(${a.scale})`,
               zIndex: Math.round(a.scale * 10),
               ["--h" as string]: HUES[a.i % HUES.length],

@@ -142,3 +142,10 @@
     color: var(--color-foreground);
   }
 }
+
+:root { --background: oklch(0.12 0.01 260); --foreground: oklch(0.97 0 0); --muted-foreground: oklch(0.65 0.01 260); }
+.hive-surface { background: radial-gradient(circle at 50% 30%, oklch(0.2 0.02 260), var(--background)); color: var(--foreground); font-family: system-ui, sans-serif; }
+.hive-icon { left: 0; top: 0; background: radial-gradient(circle at 30% 25%, oklch(0.82 0.15 var(--h)), oklch(0.58 0.18 var(--h))); box-shadow: 0 4px 14px oklch(0 0 0 / 0.45); transition: transform 180ms cubic-bezier(.2,.8,.2,1); will-change: transform; }
+.hive-label { background: oklch(1 0 0 / 0.12); backdrop-filter: blur(10px); z-index: 40; }
+.hive-open { background: oklch(0.12 0.01 260 / 0.92); backdrop-filter: blur(16px); animation: hive-in 220ms ease-out; }
+@keyframes hive-in { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: scale(1); } }

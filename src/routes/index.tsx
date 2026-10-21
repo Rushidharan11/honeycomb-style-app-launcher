@@ -162,22 +162,28 @@ function Launcher() {
         const fresh = performance.now() - vel.current.t < 100;
         let vx = fresh ? vel.current.x : 0, vy = fresh ? vel.current.y : 0;
         if (Math.hypot(vx, vy) < 0.05) return;
-        // momentum: keep pushing the target forward with decay; the easing
-        // loop follows it, so the glide stays continuous with the drag.
+        // momentum: keep pushing the target forward with decay while easing
+        // the rendered pan toward it, so the glide continues the drag smoothly.
         let previous = performance.now();
         const glide = (now: number) => {
-          if (drag.current) return; // a new touch takes over instantly
+          if (drag.current) { raf.current = 0; return; } // a new touch takes over
           const dt = Math.min(48, now - previous);
           previous = now;
           target.current = { x: target.current.x + vx * dt, y: target.current.y + vy * dt };
-          ensureLoop();
+          const cur = panRef.current;
+          const tgt = target.current;
+          const k = 1 - Math.exp(-dt / 70);
+          updatePan({ x: cur.x + (tgt.x - cur.x) * k, y: cur.y + (tgt.y - cur.y) * k });
           const decay = Math.pow(0.94, dt / 16);
           vx *= decay; vy *= decay;
-          if (Math.hypot(vx, vy) < 0.012) return;
+          if (Math.hypot(vx, vy) < 0.012 && Math.hypot(tgt.x - cur.x, tgt.y - cur.y) < 0.05) {
+            updatePan(tgt);
+            raf.current = 0;
+            return;
+          }
           raf.current = requestAnimationFrame(glide);
         };
         cancelAnimationFrame(raf.current);
-        raf.current = 0;
         raf.current = requestAnimationFrame(glide);
       }}
       onPointerCancel={() => { drag.current = null; setTouch(null); }}

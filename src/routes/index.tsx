@@ -133,7 +133,6 @@ function Launcher() {
       onPointerDown={(e) => {
         if (drag.current || (e.pointerType === "mouse" && e.button !== 0)) return;
         const p = pos(e);
-        cancelAnimationFrame(raf.current);
         setTouch(p);
         drag.current = { start: p, origin: panRef.current, moved: false, id: e.pointerId };
         vel.current = { x: 0, y: 0, point: p, t: performance.now() };
@@ -146,7 +145,8 @@ function Launcher() {
         setTouch(p);
         if (Math.hypot(p.x - drag.current.start.x, p.y - drag.current.start.y) > 8) drag.current.moved = true;
         if (drag.current.moved) {
-          updatePan(panWithFinger(drag.current.origin, drag.current.start, p));
+          target.current = panWithFinger(drag.current.origin, drag.current.start, p);
+          ensureLoop();
         }
         const now = performance.now();
         const dt = Math.max(1, now - vel.current.t);

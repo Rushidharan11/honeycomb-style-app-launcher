@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
+import { panWithFinger, wrapCoordinate, type Point } from "@/lib/honeycomb-motion";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -41,13 +42,13 @@ function Launcher() {
   const ref = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ w: 390, h: 800 });
   const [touch, setTouch] = useState<{ x: number; y: number } | null>(null);
-  const [scroll, setScroll] = useState(0);
+  const [pan, setPan] = useState<Point>({ x: 0, y: 0 });
   const [opened, setOpened] = useState<string | null>(null);
-  const drag = useRef<{ y: number; s: number; moved: boolean } | null>(null);
-  const vel = useRef({ v: 0, y: 0, t: 0 });
+  const drag = useRef<{ start: Point; origin: Point; moved: boolean; id: number } | null>(null);
+  const vel = useRef({ x: 0, y: 0, point: { x: 0, y: 0 }, t: 0 });
   const raf = useRef(0);
-  const scrollRef = useRef(0);
-  scrollRef.current = scroll;
+  const panRef = useRef(pan);
+  const updatePan = (next: Point) => { panRef.current = next; setPan(next); };
   useEffect(() => () => cancelAnimationFrame(raf.current), []);
 
   useEffect(() => {
@@ -60,18 +61,23 @@ function Launcher() {
   const rows = Math.ceil(APPS.length / COLS);
   const gridW = COLS * GAP_X;
   const offX = (size.w - gridW) / 2 + GAP_X / 2 - GAP_X / 4;
-  const contentH = rows * GAP_Y + 120;
-  const maxScroll = Math.max(0, contentH - size.h);
+  const gridH = rows * GAP_Y;
 
   const pos = (e: React.PointerEvent) => {
-    const b = ref.current!.getBoundingClientRect();
+    const b = e.currentTarget.getBoundingClientRect();
     return { x: e.clientX - b.left, y: e.clientY - b.top };
   };
 
-  const icons = APPS.map(([name, emoji], i) => {
+  const icons = APPS.flatMap(([name, emoji], i) => {
     const r = Math.floor(i / COLS), c = i % COLS;
-    const x = offX + c * GAP_X + (r % 2 ? GAP_X / 2 : 0);
-    const y = 70 + r * GAP_Y - scroll;
+    const baseX = wrapCoordinate(offX + c * GAP_X + (r % 2 ? GAP_X / 2 : 0) + pan.x, gridW);
+    const baseY = wrapCoordinate(70 + r * GAP_Y + pan.y, gridH);
+    const copies = [];
+    for (let tileY = -1; tileY <= Math.ceil(size.h / gridH); tileY++) {
+      for (let tileX = -1; tileX <= Math.ceil(size.w / gridW); tileX++) {
+    const x = baseX + tileX * gridW;
+    const y = baseY + tileY * gridH;
+    if (x < -100 || x > size.w + 100 || y < -100 || y > size.h + 100) continue;
     let scale = 0.85, dx = 0, dy = 0;
     if (touch) {
       const vx = x - touch.x, vy = y - touch.y;
@@ -85,7 +91,10 @@ function Launcher() {
       const ey = Math.min(y, size.h - y) / 80;
       scale = 0.6 + Math.min(1, Math.max(0, ey)) * 0.4;
     }
-    return { name, emoji, i, x: x + dx, y: y + dy, scale };
+    copies.push({ name, emoji, i, key: `${i}:${tileX}:${tileY}`, x: x + dx, y: y + dy, scale });
+      }
+    }
+    return copies;
   });
 
   const nearest = touch
@@ -97,61 +106,61 @@ function Launcher() {
       ref={ref}
       className="hive-surface fixed inset-0 touch-none select-none overflow-hidden"
       onPointerDown={(e) => {
+        if (drag.current || (e.pointerType === "mouse" && e.button !== 0)) return;
         const p = pos(e);
         cancelAnimationFrame(raf.current);
         setTouch(p);
-        drag.current = { y: p.y, s: scroll, moved: false };
-        vel.current = { v: 0, y: p.y, t: performance.now() };
-        (e.target as Element).setPointerCapture?.(e.pointerId);
+        drag.current = { start: p, origin: panRef.current, moved: false, id: e.pointerId };
+        vel.current = { x: 0, y: 0, point: p, t: performance.now() };
+        e.currentTarget.setPointerCapture(e.pointerId);
       }}
       onPointerMove={(e) => {
         const p = pos(e);
         if (e.pointerType === "mouse" && !drag.current) { setTouch(p); return; }
-        if (!drag.current) return;
+        if (!drag.current || drag.current.id !== e.pointerId) return;
         setTouch(p);
-        const dy = p.y - drag.current.y;
-        if (Math.abs(dy) > 8) drag.current.moved = true;
+        if (Math.hypot(p.x - drag.current.start.x, p.y - drag.current.start.y) > 8) drag.current.moved = true;
         if (drag.current.moved) {
-          // content moves with the finger: scroll opposite to finger delta, with rubber-band edges
-          let s = drag.current.s - dy;
-          if (s < 0) s = s * 0.35;
-          else if (s > maxScroll) s = maxScroll + (s - maxScroll) * 0.35;
-          setScroll(s);
+          updatePan(panWithFinger(drag.current.origin, drag.current.start, p));
         }
         const now = performance.now();
         const dt = Math.max(1, now - vel.current.t);
-        vel.current = { v: 0.8 * ((vel.current.y - p.y) / dt) + 0.2 * vel.current.v, y: p.y, t: now };
+        vel.current = { x: 0.8 * ((p.x - vel.current.point.x) / dt) + 0.2 * vel.current.x, y: 0.8 * ((p.y - vel.current.point.y) / dt) + 0.2 * vel.current.y, point: p, t: now };
       }}
-      onPointerUp={() => {
+      onPointerUp={(e) => {
+        if (!drag.current || drag.current.id !== e.pointerId) return;
         const moved = drag.current?.moved;
         if (!moved && nearest && touch && Math.hypot(nearest.x - touch.x, nearest.y - touch.y) < 50) setOpened(nearest.name ?? null);
         drag.current = null;
         setTouch(null);
-        // momentum + spring back
-        let v = moved ? vel.current.v * 16 : 0;
-        const step = () => {
-          let n = scrollRef.current + v;
-          v *= 0.94;
-          if (n < 0) { n = n * 0.8; v *= 0.5; }
-          else if (n > maxScroll) { n = maxScroll + (n - maxScroll) * 0.8; v *= 0.5; }
-          const out = n < -0.5 || n > maxScroll + 0.5;
-          if (Math.abs(v) < 0.2 && !out) { setScroll(Math.min(maxScroll, Math.max(0, n))); return; }
-          scrollRef.current = n; setScroll(n);
+        if (!moved || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+        const fresh = performance.now() - vel.current.t < 100;
+        let vx = fresh ? vel.current.x : 0, vy = fresh ? vel.current.y : 0;
+        let previous = performance.now();
+        const step = (now: number) => {
+          const dt = Math.min(32, now - previous);
+          previous = now;
+          updatePan({ x: panRef.current.x + vx * dt, y: panRef.current.y + vy * dt });
+          const decay = Math.pow(0.94, dt / 16);
+          vx *= decay; vy *= decay;
+          if (Math.hypot(vx, vy) < 0.012) return;
           raf.current = requestAnimationFrame(step);
         };
         raf.current = requestAnimationFrame(step);
       }}
+      onPointerCancel={() => { drag.current = null; setTouch(null); cancelAnimationFrame(raf.current); }}
       onPointerLeave={(e) => { if (e.pointerType === "mouse") setTouch(null); }}
-      onWheel={(e) => setScroll((s) => Math.min(maxScroll, Math.max(0, s + e.deltaY)))}
+      onWheel={(e) => { cancelAnimationFrame(raf.current); updatePan({ x: panRef.current.x - e.deltaX, y: panRef.current.y - e.deltaY }); }}
     >
       <div className="pointer-events-none absolute left-0 right-0 top-4 text-center text-xs tracking-[0.3em] text-muted-foreground">
         HIVE
       </div>
       {icons.map((a) => {
-        const hot = nearest?.i === a.i;
+        const hot = nearest?.key === a.key;
         return (
           <div
-            key={a.i}
+            key={a.key}
+            data-app={a.name}
             className="hive-icon absolute flex items-center justify-center rounded-full"
             style={{
               width: BASE, height: BASE,

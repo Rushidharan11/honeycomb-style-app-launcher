@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep the launcher's two-axis translation and periodic wrapping in a browser-safe motion module, so thumb-following movement can be tested independently of rendering.

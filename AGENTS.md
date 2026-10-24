@@ -10,3 +10,4 @@
 <!-- LOVABLE:END -->
 
 - Keep the launcher's two-axis translation and periodic wrapping in a browser-safe motion module, so thumb-following movement can be tested independently of rendering.
+- The launcher is mobile-only responsive: full-bleed below 768px, a centered 390x844 phone frame above; honeycomb metrics (BASE/GAP_X/GAP_Y/TOP) derive from viewport width clamped to 0.78–1.15 so density adapts to phone sizes, and the surface measures itself with a ResizeObserver rather than window size.

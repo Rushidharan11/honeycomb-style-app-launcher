@@ -34,9 +34,6 @@ const APPS = [
 ];
 const HUES = [25, 55, 145, 200, 240, 330, 10, 170, 85, 280];
 const COLS = 7;
-const BASE = 46; // icon diameter
-const GAP_X = 54;
-const GAP_Y = 47;
 
 function Launcher() {
   const ref = useRef<HTMLDivElement>(null);
@@ -77,12 +74,25 @@ function Launcher() {
   useEffect(() => () => cancelAnimationFrame(raf.current), []);
 
   useEffect(() => {
-    const r = () => setSize({ w: window.innerWidth, h: window.innerHeight });
-    r();
-    window.addEventListener("resize", r);
-    return () => window.removeEventListener("resize", r);
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
   }, []);
 
+  // Responsive scale: adapts honeycomb density to the phone's width.
+  const scale = Math.min(1.15, Math.max(0.78, size.w / 390));
+  const BASE = 46 * scale; // icon diameter
+  const GAP_X = 54 * scale;
+  const GAP_Y = 47 * scale;
+  const TOP = 70 * scale;
   const rows = Math.ceil(APPS.length / COLS);
   const gridW = COLS * GAP_X;
   const offX = (size.w - gridW) / 2 + GAP_X / 2 - GAP_X / 4;
@@ -96,7 +106,7 @@ function Launcher() {
   const icons = APPS.flatMap(([name, emoji], i) => {
     const r = Math.floor(i / COLS), c = i % COLS;
     const baseX = wrapCoordinate(offX + c * GAP_X + (r % 2 ? GAP_X / 2 : 0) + pan.x, gridW);
-    const baseY = wrapCoordinate(70 + r * GAP_Y + pan.y, gridH);
+    const baseY = wrapCoordinate(TOP + r * GAP_Y + pan.y, gridH);
     const copies = [];
     for (let tileY = -1; tileY <= Math.ceil(size.h / gridH); tileY++) {
       for (let tileX = -1; tileX <= Math.ceil(size.w / gridW); tileX++) {
@@ -133,7 +143,7 @@ function Launcher() {
     for (let i = 0; i < APPS.length; i++) {
       const r = Math.floor(i / COLS), c = i % COLS;
       const bx = wrapCoordinate(offX + c * GAP_X + (r % 2 ? GAP_X / 2 : 0) + panV.x, gridW);
-      const by = wrapCoordinate(70 + r * GAP_Y + panV.y, gridH);
+      const by = wrapCoordinate(TOP + r * GAP_Y + panV.y, gridH);
       for (let ty = -1; ty <= Math.ceil(size.h / gridH); ty++) {
         for (let tx = -1; tx <= Math.ceil(size.w / gridW); tx++) {
           const d = Math.hypot(bx + tx * gridW - p.x, by + ty * gridH - p.y);
@@ -145,9 +155,10 @@ function Launcher() {
   };
 
   return (
+    <div className="hive-stage">
     <div
       ref={ref}
-      className="hive-surface fixed inset-0 touch-none select-none overflow-hidden"
+      className="hive-surface hive-frame touch-none select-none overflow-hidden"
       onPointerDown={(e) => {
         if (drag.current || (e.pointerType === "mouse" && e.button !== 0)) return;
         const p = pos(e);
@@ -253,6 +264,7 @@ function Launcher() {
           <div className="text-sm text-muted-foreground">Tap to return</div>
         </div>
       )}
+    </div>
     </div>
   );
 }

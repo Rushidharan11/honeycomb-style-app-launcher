@@ -1,8 +1,10 @@
-# Honeycomb Launcher
+# User Centric Rotational Honeycomb Mobile app Launcher
 
-Build a mobile app launcher inspired by the Apple Watch honeycomb layout, but designed to fill the entire mobile screen. Arrange app icons in a continuous honeycomb pattern across the screen. When the user touches or moves their thumb over a particular area, the app icons near the touch point should enlarge, while the surrounding icons remain at their regular size. As the user moves their thumb or scrolls through the layout, the enlarged area should move accordingly, making nearby apps easier to reach and select. Create a smooth, dynamic magnification effect where the apps closest to the user's touch become prominent and accessible, while the rest of the honeycomb grid stays compact. The goal is to make one-handed mobile navigation more ergonomic, intuitive, and comfortable, with a clean interface, smooth animations, and easy app selection.
+An ergonomic mobile app launcher inspired by the Apple Watch honeycomb layout, featuring a continuous hexagonal grid with dynamic, touch-responsive icon magnification. Users can drag across the screen to smoothly navigate the layout, bringing apps closer to their thumb while surrounding icons rearrange dynamically. Designed to improve one-handed accessibility, the launcher combines smooth animations, intuitive interactions, and a compact layout for a more comfortable mobile user experience.
 
 This project was built with [Lovable](https://lovable.dev).
+
+Project link: [User Centric Rotationl Honeycomb Mobile app Launcher](https://honeycomb-mobile-apps-launcher.lovable.app/)
 
 ## Build with Lovable
 

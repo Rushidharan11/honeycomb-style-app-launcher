@@ -4,15 +4,7 @@ An ergonomic mobile app launcher inspired by the Apple Watch honeycomb layout, f
 
 This project was built with [Lovable](https://lovable.dev).
 
-Project link: [User Centric Rotationl Honeycomb Mobile app Launcher](https://honeycomb-mobile-apps-launcher.lovable.app/)
-
-## Build with Lovable
-
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/1d6e8f61-9233-4e48-8da1-5b08deeef066).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+Project live link: [User Centric Rotationl Honeycomb Mobile app Launcher](https://honeycomb-mobile-apps-launcher.lovable.app/)
 
 ## Development
 

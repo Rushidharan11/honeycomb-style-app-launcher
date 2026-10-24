@@ -106,7 +106,7 @@ function Launcher() {
   const icons = APPS.flatMap(([name, emoji], i) => {
     const r = Math.floor(i / COLS), c = i % COLS;
     const baseX = wrapCoordinate(offX + c * GAP_X + (r % 2 ? GAP_X / 2 : 0) + pan.x, gridW);
-    const baseY = wrapCoordinate(70 + r * GAP_Y + pan.y, gridH);
+    const baseY = wrapCoordinate(TOP + r * GAP_Y + pan.y, gridH);
     const copies = [];
     for (let tileY = -1; tileY <= Math.ceil(size.h / gridH); tileY++) {
       for (let tileX = -1; tileX <= Math.ceil(size.w / gridW); tileX++) {
@@ -143,7 +143,7 @@ function Launcher() {
     for (let i = 0; i < APPS.length; i++) {
       const r = Math.floor(i / COLS), c = i % COLS;
       const bx = wrapCoordinate(offX + c * GAP_X + (r % 2 ? GAP_X / 2 : 0) + panV.x, gridW);
-      const by = wrapCoordinate(70 + r * GAP_Y + panV.y, gridH);
+      const by = wrapCoordinate(TOP + r * GAP_Y + panV.y, gridH);
       for (let ty = -1; ty <= Math.ceil(size.h / gridH); ty++) {
         for (let tx = -1; tx <= Math.ceil(size.w / gridW); tx++) {
           const d = Math.hypot(bx + tx * gridW - p.x, by + ty * gridH - p.y);
@@ -155,9 +155,10 @@ function Launcher() {
   };
 
   return (
+    <div className="hive-stage">
     <div
       ref={ref}
-      className="hive-surface fixed inset-0 touch-none select-none overflow-hidden"
+      className="hive-surface hive-frame touch-none select-none overflow-hidden"
       onPointerDown={(e) => {
         if (drag.current || (e.pointerType === "mouse" && e.button !== 0)) return;
         const p = pos(e);
@@ -263,6 +264,7 @@ function Launcher() {
           <div className="text-sm text-muted-foreground">Tap to return</div>
         </div>
       )}
+    </div>
     </div>
   );
 }

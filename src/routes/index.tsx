@@ -34,9 +34,6 @@ const APPS = [
 ];
 const HUES = [25, 55, 145, 200, 240, 330, 10, 170, 85, 280];
 const COLS = 7;
-const BASE = 46; // icon diameter
-const GAP_X = 54;
-const GAP_Y = 47;
 
 function Launcher() {
   const ref = useRef<HTMLDivElement>(null);
@@ -77,12 +74,25 @@ function Launcher() {
   useEffect(() => () => cancelAnimationFrame(raf.current), []);
 
   useEffect(() => {
-    const r = () => setSize({ w: window.innerWidth, h: window.innerHeight });
-    r();
-    window.addEventListener("resize", r);
-    return () => window.removeEventListener("resize", r);
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => setSize({ w: el.clientWidth, h: el.clientHeight });
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    window.addEventListener("resize", measure);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", measure);
+    };
   }, []);
 
+  // Responsive scale: adapts honeycomb density to the phone's width.
+  const scale = Math.min(1.15, Math.max(0.78, size.w / 390));
+  const BASE = 46 * scale; // icon diameter
+  const GAP_X = 54 * scale;
+  const GAP_Y = 47 * scale;
+  const TOP = 70 * scale;
   const rows = Math.ceil(APPS.length / COLS);
   const gridW = COLS * GAP_X;
   const offX = (size.w - gridW) / 2 + GAP_X / 2 - GAP_X / 4;
